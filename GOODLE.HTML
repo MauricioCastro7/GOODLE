@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOOF WOOF</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-image: url('goodleback.JPG');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        #canvas-container {
+            position: relative;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+        }
+        #imageCanvas {
+            border: 1px solid #000;
+        }
+        .draggable {
+            position: absolute;
+            cursor: move;
+            border: 1px dashed #000;
+        }
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #000;
+            cursor: nwse-resize;
+            right: 0;
+            bottom: 0;
+        }
+        .rotate-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: red;
+            cursor: pointer;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #toolbar {
+            margin-top: 20px;
+        }
+        #preview-container {
+            margin-top: 20px;
+            border: 1px solid #000;
+        }
+    </style>
+</head>
+<body>
+    <h1>$GOODLE your pfp!</h1>
+    <input type="file" id="upload" accept="image/*">
+    <div id="canvas-container">
+        <canvas id="imageCanvas"></canvas>
+    </div>
+    <div id="toolbar">
+        <button id="addImage">$GOODLE IT!</button>
+        <button id="deleteLastImage">Delete Last GOODLE :(</button>
+    </div>
+    <div id="preview-container">
+        <h2>Preview</h2>
+        <canvas id="previewCanvas"></canvas>
+    </div>
+    <img id="overlay" src="GLASS.png" alt="Overlay" style="display:none;">
+
+    <script>
+        const upload = document.getElementById('upload');
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        const addImageButton = document.getElementById('addImage');
+        const deleteLastImageButton = document.getElementById('deleteLastImage');
+        const overlay = document.getElementById('overlay');
+        let baseImage;
+        let addedImages = [];
+
+        upload.addEventListener('change', handleImageUpload);
+        addImageButton.addEventListener('click', addOverlayImage);
+        deleteLastImageButton.addEventListener('click', deleteLastOverlayImage);
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    baseImage = new Image();
+                    baseImage.onload = function() {
+                        canvas.width = baseImage.width;
+                        canvas.height = baseImage.height;
+                        ctx.drawImage(baseImage, 0, 0);
+                        previewCanvas.width = baseImage.width;
+                        previewCanvas.height = baseImage.height;
+                        updatePreview();
+                    };
+                    baseImage.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function addOverlayImage() {
+            const imgContainer = document.createElement('div');
+            imgContainer.classList.add('draggable');
+            imgContainer.style.top = '10px';
+            imgContainer.style.left = '10px';
+            imgContainer.style.width = '100px';
+            imgContainer.style.height = '100px';
+            imgContainer.style.position = 'absolute';
+
+            const img = new Image();
+            img.src = overlay.src;
+            img.style.width = '100%';
+            img.style.height = '100%';
+
+            const resizeHandle = document.createElement('div');
+            resizeHandle.classList.add('resize-handle');
+
+            const rotateHandle = document.createElement('div');
+            rotateHandle.classList.add('rotate-handle');
+
+            imgContainer.appendChild(img);
+            imgContainer.appendChild(resizeHandle);
+            imgContainer.appendChild(rotateHandle);
+            document.getElementById('canvas-container').appendChild(imgContainer);
+
+            addedImages.push(imgContainer);
+
+            // Add event listeners
+            imgContainer.addEventListener('mousedown', startDragging);
+            resizeHandle.addEventListener('mousedown', startResizing);
+            rotateHandle.addEventListener('mousedown', startRotating);
+            imgContainer.addEventListener('mouseup', updatePreview);
+
+            function startDragging(event) {
+                event.preventDefault();
+                const shiftX = event.clientX - imgContainer.getBoundingClientRect().left;
+                const shiftY = event.clientY - imgContainer.getBoundingClientRect().top;
+
+                function moveAt(pageX, pageY) {
+                    imgContainer.style.left = pageX - shiftX + 'px';
+                    imgContainer.style.top = pageY - shiftY + 'px';
+                    updatePreview();
+                }
+
+                function onMouseMove(event) {
+                    moveAt(event.pageX, event.pageY);
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+
+                document.onmouseup = function() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.onmouseup = null;
+                };
+            }
+
+            function startResizing(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const startX = event.clientX;
+                const startY = event.clientY;
+                const startWidth = parseInt(document.defaultView.getComputedStyle(imgContainer).width, 10);
+                const startHeight = parseInt(document.defaultView.getComputedStyle(imgContainer).height, 10);
+
+                function resize(event) {
+                    imgContainer.style.width = (startWidth + event.clientX - startX) + 'px';
+                    imgContainer.style.height = (startHeight + event.clientY - startY) + 'px';
+                    updatePreview();
+                }
+
+                document.addEventListener('mousemove', resize);
+
+                document.onmouseup = function() {
+                    document.removeEventListener('mousemove', resize);
+                    document.onmouseup = null;
+                    updatePreview();
+                };
+            }
+
+            function startRotating(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const centerX = imgContainer.offsetLeft + imgContainer.offsetWidth / 2;
+                const centerY = imgContainer.offsetTop + imgContainer.offsetHeight / 2;
+                const startX = event.clientX;
+                const startY = event.clientY;
+
+                function rotate(event) {
+                    const angle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180 / Math.PI;
+                    imgContainer.style.transform = `rotate(${angle}deg)`;
+                    updatePreview();
+                }
+
+                document.addEventListener('mousemove', rotate);
+
+                document.onmouseup = function() {
+                    document.removeEventListener('mousemove', rotate);
+                    document.onmouseup = null;
+                    updatePreview();
+                };
+            }
+        }
+
+        function deleteLastOverlayImage() {
+            const lastImage = addedImages.pop();
+            if (lastImage) {
+                lastImage.remove();
+                updatePreview();
+            }
+        }
+
+        function updatePreview() {
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            previewCtx.drawImage(baseImage, 0, 0);
+
+            for (let imgContainer of addedImages) {
+                const img = imgContainer.getElementsByTagName('img')[0];
+                const rect = imgContainer.getBoundingClientRect();
+                const angle = parseFloat(imgContainer.style.transform.replace('rotate(', '').replace('deg)', '')) || 0;
+
+                const x = rect.left - canvas.getBoundingClientRect().left;
+                const y = rect.top - canvas.getBoundingClientRect().top;
+
+                previewCtx.save();
+                previewCtx.translate(x + imgContainer.offsetWidth / 2, y + imgContainer.offsetHeight / 2);
+                previewCtx.rotate(angle * Math.PI / 180);
+                previewCtx.drawImage(img, -imgContainer.offsetWidth / 2, -imgContainer.offsetHeight / 2, imgContainer.offsetWidth, imgContainer.offsetHeight);
+                previewCtx.restore();
+            }
+        }
+    </script>
+</body>
+</html>
