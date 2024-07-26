@@ -183,16 +183,23 @@
 
             addedImages.push(imgContainer);
 
-            // Add event listeners
+            // Add event listeners for mouse events
             imgContainer.addEventListener('mousedown', startDragging);
             resizeHandle.addEventListener('mousedown', startResizing);
             rotateHandle.addEventListener('mousedown', startRotating);
             imgContainer.addEventListener('mouseup', updatePreview);
 
+            // Add event listeners for touch events
+            imgContainer.addEventListener('touchstart', startDragging);
+            resizeHandle.addEventListener('touchstart', startResizing);
+            rotateHandle.addEventListener('touchstart', startRotating);
+            imgContainer.addEventListener('touchend', updatePreview);
+
             function startDragging(event) {
                 event.preventDefault();
-                const shiftX = event.clientX - imgContainer.getBoundingClientRect().left;
-                const shiftY = event.clientY - imgContainer.getBoundingClientRect().top;
+                const touch = event.type === 'touchstart';
+                const shiftX = touch ? event.touches[0].clientX - imgContainer.getBoundingClientRect().left : event.clientX - imgContainer.getBoundingClientRect().left;
+                const shiftY = touch ? event.touches[0].clientY - imgContainer.getBoundingClientRect().top : event.clientY - imgContainer.getBoundingClientRect().top;
 
                 function moveAt(pageX, pageY) {
                     imgContainer.style.left = pageX - shiftX + 'px';
@@ -204,33 +211,59 @@
                     moveAt(event.pageX, event.pageY);
                 }
 
-                document.addEventListener('mousemove', onMouseMove);
+                function onTouchMove(event) {
+                    moveAt(event.touches[0].pageX, event.touches[0].pageY);
+                }
+
+                if (touch) {
+                    document.addEventListener('touchmove', onTouchMove);
+                } else {
+                    document.addEventListener('mousemove', onMouseMove);
+                }
 
                 document.onmouseup = function() {
                     document.removeEventListener('mousemove', onMouseMove);
                     document.onmouseup = null;
+                };
+
+                document.ontouchend = function() {
+                    document.removeEventListener('touchmove', onTouchMove);
+                    document.ontouchend = null;
                 };
             }
 
             function startResizing(event) {
                 event.preventDefault();
                 event.stopPropagation();
-                const startX = event.clientX;
-                const startY = event.clientY;
+                const touch = event.type === 'touchstart';
+                const startX = touch ? event.touches[0].clientX : event.clientX;
+                const startY = touch ? event.touches[0].clientY : event.clientY;
                 const startWidth = parseInt(document.defaultView.getComputedStyle(imgContainer).width, 10);
                 const startHeight = parseInt(document.defaultView.getComputedStyle(imgContainer).height, 10);
 
                 function resize(event) {
-                    imgContainer.style.width = (startWidth + event.clientX - startX) + 'px';
-                    imgContainer.style.height = (startHeight + event.clientY - startY) + 'px';
+                    const currentX = touch ? event.touches[0].clientX : event.clientX;
+                    const currentY = touch ? event.touches[0].clientY : event.clientY;
+                    imgContainer.style.width = (startWidth + currentX - startX) + 'px';
+                    imgContainer.style.height = (startHeight + currentY - startY) + 'px';
                     updatePreview();
                 }
 
-                document.addEventListener('mousemove', resize);
+                if (touch) {
+                    document.addEventListener('touchmove', resize);
+                } else {
+                    document.addEventListener('mousemove', resize);
+                }
 
                 document.onmouseup = function() {
                     document.removeEventListener('mousemove', resize);
                     document.onmouseup = null;
+                    updatePreview();
+                };
+
+                document.ontouchend = function() {
+                    document.removeEventListener('touchmove', resize);
+                    document.ontouchend = null;
                     updatePreview();
                 };
             }
@@ -238,22 +271,35 @@
             function startRotating(event) {
                 event.preventDefault();
                 event.stopPropagation();
+                const touch = event.type === 'touchstart';
                 const centerX = imgContainer.offsetLeft + imgContainer.offsetWidth / 2;
                 const centerY = imgContainer.offsetTop + imgContainer.offsetHeight / 2;
-                const startX = event.clientX;
-                const startY = event.clientY;
+                const startX = touch ? event.touches[0].clientX : event.clientX;
+                const startY = touch ? event.touches[0].clientY : event.clientY;
 
                 function rotate(event) {
-                    const angle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180 / Math.PI;
-                    imgContainer.style.transform = rotate(${angle}deg);
+                    const currentX = touch ? event.touches[0].clientX : event.clientX;
+                    const currentY = touch ? event.touches[0].clientY : event.clientY;
+                    const angle = Math.atan2(currentY - centerY, currentX - centerX) * 180 / Math.PI;
+                    imgContainer.style.transform = `rotate(${angle}deg)`;
                     updatePreview();
                 }
 
-                document.addEventListener('mousemove', rotate);
+                if (touch) {
+                    document.addEventListener('touchmove', rotate);
+                } else {
+                    document.addEventListener('mousemove', rotate);
+                }
 
                 document.onmouseup = function() {
                     document.removeEventListener('mousemove', rotate);
                     document.onmouseup = null;
+                    updatePreview();
+                };
+
+                document.ontouchend = function() {
+                    document.removeEventListener('touchmove', rotate);
+                    document.ontouchend = null;
                     updatePreview();
                 };
             }
