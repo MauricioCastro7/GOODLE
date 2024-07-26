@@ -16,6 +16,7 @@
             margin: 0;
             background-color: #c500ff;
             color: #ffff00;
+            overflow: hidden;
         }
         header {
             width: 100%;
@@ -46,9 +47,17 @@
             padding: 10px;
             margin-top: 20px;
             z-index: 10;
+            width: 100%;
+            max-width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
         }
         #imageCanvas {
             border: 1px solid #000;
+            max-width: 100%;
+            height: auto;
         }
         .draggable {
             position: absolute;
@@ -146,9 +155,16 @@
             padding: 10px;
             text-align: center;
             z-index: 10;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         #preview-container h2 {
             margin: 0;
+        }
+        #previewCanvas {
+            max-width: 100%;
+            height: auto;
         }
         .corner-image {
             position: absolute;
@@ -218,17 +234,34 @@
                 reader.onload = function(e) {
                     baseImage = new Image();
                     baseImage.onload = function() {
-                        canvas.width = baseImage.width;
-                        canvas.height = baseImage.height;
-                        ctx.drawImage(baseImage, 0, 0);
-                        previewCanvas.width = baseImage.width;
-                        previewCanvas.height = baseImage.height;
+                        adjustCanvasSize(baseImage);
+                        ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+                        previewCanvas.width = canvas.width;
+                        previewCanvas.height = canvas.height;
                         updatePreview();
                     };
                     baseImage.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             }
+        }
+
+        function adjustCanvasSize(image) {
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = window.innerHeight * 0.6;
+            let width = image.width;
+            let height = image.height;
+
+            if (width > maxWidth || height > maxHeight) {
+                const widthRatio = maxWidth / width;
+                const heightRatio = maxHeight / height;
+                const minRatio = Math.min(widthRatio, heightRatio);
+                width = width * minRatio;
+                height = height * minRatio;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
         }
 
         function addOverlayImage(src) {
@@ -452,7 +485,7 @@
 
         function updatePreview() {
             previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-            previewCtx.drawImage(baseImage, 0, 0);
+            previewCtx.drawImage(baseImage, 0, 0, previewCanvas.width, previewCanvas.height);
 
             for (let imgContainer of addedImages) {
                 const img = imgContainer.getElementsByTagName('img')[0];
