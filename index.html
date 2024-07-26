@@ -23,6 +23,7 @@
             background-color: #ffff00;
             display: flex;
             align-items: center;
+            justify-content: center;
             padding: 10px;
             box-sizing: border-box;
         }
@@ -31,15 +32,20 @@
             margin-right: 20px;
         }
         header h1 {
-            color: #c500ff;
+            background-color: #c500ff;
+            color: #ffff00;
             margin: 0;
             font-size: 48px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            z-index: 10;
         }
         #canvas-container {
             position: relative;
             background-color: rgba(255, 255, 255, 0.8);
             padding: 10px;
             margin-top: 20px;
+            z-index: 10;
         }
         #imageCanvas {
             border: 1px solid #000;
@@ -48,6 +54,8 @@
             position: absolute;
             cursor: move;
             border: 1px dashed #000;
+            box-sizing: border-box;
+            transform-origin: center center;
         }
         .resize-handle {
             position: absolute;
@@ -55,21 +63,64 @@
             height: 10px;
             background: #000;
             cursor: nwse-resize;
-            right: 0;
-            bottom: 0;
+        }
+        .resize-handle.top-left {
+            top: -5px;
+            left: -5px;
+            cursor: nwse-resize;
+        }
+        .resize-handle.top-right {
+            top: -5px;
+            right: -5px;
+            cursor: nesw-resize;
+        }
+        .resize-handle.bottom-left {
+            bottom: -5px;
+            left: -5px;
+            cursor: nesw-resize;
+        }
+        .resize-handle.bottom-right {
+            bottom: -5px;
+            right: -5px;
+            cursor: nwse-resize;
+        }
+        .resize-handle.top {
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: ns-resize;
+        }
+        .resize-handle.bottom {
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: ns-resize;
+        }
+        .resize-handle.left {
+            top: 50%;
+            left: -5px;
+            transform: translateY(-50%);
+            cursor: ew-resize;
+        }
+        .resize-handle.right {
+            top: 50%;
+            right: -5px;
+            transform: translateY(-50%);
+            cursor: ew-resize;
         }
         .rotate-handle {
             position: absolute;
-            width: 10px;
-            height: 10px;
+            width: 20px;
+            height: 20px;
             background: red;
             cursor: pointer;
-            top: -20px;
+            top: -30px;
             left: 50%;
             transform: translateX(-50%);
         }
         #toolbar {
             margin-top: 20px;
+            z-index: 10;
         }
         #toolbar button, #upload {
             background-color: #ffff00;
@@ -87,15 +138,32 @@
         }
         #upload-container {
             margin-top: 20px;
+            z-index: 10;
         }
         #preview-container {
             margin-top: 20px;
             border: 1px solid #000;
             padding: 10px;
             text-align: center;
+            z-index: 10;
         }
         #preview-container h2 {
             margin: 0;
+        }
+        .corner-image {
+            position: absolute;
+            z-index: 1;
+        }
+        .mid-left {
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            z-index: 0;
+        }
+        .bottom-right {
+            bottom: 0;
+            right: 0;
+            z-index: 0;
         }
     </style>
 </head>
@@ -111,14 +179,18 @@
         <canvas id="imageCanvas"></canvas>
     </div>
     <div id="toolbar">
-        <button id="addImage">$GOODLE IT!</button>
-        <button id="deleteLastImage">Delete Last GOODLE :(</button>
+        <button id="addImage">MONOCLE!</button>
+        <button id="addAnotherImage">HAT!</button>
+        <button id="deleteLastImage">Delete Last :(</button>
     </div>
     <div id="preview-container">
         <h2>Preview</h2>
         <canvas id="previewCanvas"></canvas>
     </div>
-    <img id="overlay" src="GLASS.png" alt="Overlay" style="display:none;">
+    <img id="overlay" src="MONOCLEE.png" alt="Overlay" style="display:none;">
+    <img id="anotherOverlay" src="HAT.png" alt="Another Overlay" style="display:none;">
+    <img src="lefty.png" alt="Mid Left Image" class="corner-image mid-left">
+    <img src="righty3.png" alt="Bottom Right Image" class="corner-image bottom-right">
 
     <script>
         const upload = document.getElementById('upload');
@@ -127,13 +199,16 @@
         const previewCanvas = document.getElementById('previewCanvas');
         const previewCtx = previewCanvas.getContext('2d');
         const addImageButton = document.getElementById('addImage');
+        const addAnotherImageButton = document.getElementById('addAnotherImage');
         const deleteLastImageButton = document.getElementById('deleteLastImage');
         const overlay = document.getElementById('overlay');
+        const anotherOverlay = document.getElementById('anotherOverlay');
         let baseImage;
         let addedImages = [];
 
         upload.addEventListener('change', handleImageUpload);
-        addImageButton.addEventListener('click', addOverlayImage);
+        addImageButton.addEventListener('click', () => addOverlayImage(overlay.src));
+        addAnotherImageButton.addEventListener('click', () => addOverlayImage(anotherOverlay.src));
         deleteLastImageButton.addEventListener('click', deleteLastOverlayImage);
 
         function handleImageUpload(event) {
@@ -156,7 +231,7 @@
             }
         }
 
-        function addOverlayImage() {
+        function addOverlayImage(src) {
             const imgContainer = document.createElement('div');
             imgContainer.classList.add('draggable');
             imgContainer.style.top = '10px';
@@ -166,18 +241,21 @@
             imgContainer.style.position = 'absolute';
 
             const img = new Image();
-            img.src = overlay.src;
+            img.src = src;
             img.style.width = '100%';
             img.style.height = '100%';
 
-            const resizeHandle = document.createElement('div');
-            resizeHandle.classList.add('resize-handle');
+            const resizeHandles = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'top', 'bottom', 'left', 'right'].map(pos => {
+                const handle = document.createElement('div');
+                handle.classList.add('resize-handle', pos);
+                return handle;
+            });
 
             const rotateHandle = document.createElement('div');
             rotateHandle.classList.add('rotate-handle');
 
             imgContainer.appendChild(img);
-            imgContainer.appendChild(resizeHandle);
+            resizeHandles.forEach(handle => imgContainer.appendChild(handle));
             imgContainer.appendChild(rotateHandle);
             document.getElementById('canvas-container').appendChild(imgContainer);
 
@@ -185,14 +263,15 @@
 
             // Add event listeners for mouse events
             imgContainer.addEventListener('mousedown', startDragging);
-            resizeHandle.addEventListener('mousedown', startResizing);
+            resizeHandles.forEach(handle => handle.addEventListener('mousedown', startResizing));
             rotateHandle.addEventListener('mousedown', startRotating);
-            imgContainer.addEventListener('mouseup', updatePreview);
 
             // Add event listeners for touch events
             imgContainer.addEventListener('touchstart', startDragging);
-            resizeHandle.addEventListener('touchstart', startResizing);
+            resizeHandles.forEach(handle => handle.addEventListener('touchstart', startResizing));
             rotateHandle.addEventListener('touchstart', startRotating);
+
+            imgContainer.addEventListener('mouseup', updatePreview);
             imgContainer.addEventListener('touchend', updatePreview);
 
             function startDragging(event) {
@@ -236,16 +315,74 @@
                 event.preventDefault();
                 event.stopPropagation();
                 const touch = event.type === 'touchstart';
+                const handleClass = event.target.classList[1];
                 const startX = touch ? event.touches[0].clientX : event.clientX;
                 const startY = touch ? event.touches[0].clientY : event.clientY;
                 const startWidth = parseInt(document.defaultView.getComputedStyle(imgContainer).width, 10);
                 const startHeight = parseInt(document.defaultView.getComputedStyle(imgContainer).height, 10);
+                const startLeft = imgContainer.offsetLeft;
+                const startTop = imgContainer.offsetTop;
 
                 function resize(event) {
                     const currentX = touch ? event.touches[0].clientX : event.clientX;
                     const currentY = touch ? event.touches[0].clientY : event.clientY;
-                    imgContainer.style.width = (startWidth + currentX - startX) + 'px';
-                    imgContainer.style.height = (startHeight + currentY - startY) + 'px';
+                    let newWidth, newHeight, newLeft, newTop;
+
+                    switch (handleClass) {
+                        case 'top-left':
+                            newWidth = startWidth - (currentX - startX);
+                            newHeight = startHeight - (currentY - startY);
+                            newLeft = startLeft + (currentX - startX);
+                            newTop = startTop + (currentY - startY);
+                            break;
+                        case 'top-right':
+                            newWidth = startWidth + (currentX - startX);
+                            newHeight = startHeight - (currentY - startY);
+                            newLeft = startLeft;
+                            newTop = startTop + (currentY - startY);
+                            break;
+                        case 'bottom-left':
+                            newWidth = startWidth - (currentX - startX);
+                            newHeight = startHeight + (currentY - startY);
+                            newLeft = startLeft + (currentX - startX);
+                            newTop = startTop;
+                            break;
+                        case 'bottom-right':
+                            newWidth = startWidth + (currentX - startX);
+                            newHeight = startHeight + (currentY - startY);
+                            newLeft = startLeft;
+                            newTop = startTop;
+                            break;
+                        case 'top':
+                            newWidth = startWidth;
+                            newHeight = startHeight - (currentY - startY);
+                            newLeft = startLeft;
+                            newTop = startTop + (currentY - startY);
+                            break;
+                        case 'bottom':
+                            newWidth = startWidth;
+                            newHeight = startHeight + (currentY - startY);
+                            newLeft = startLeft;
+                            newTop = startTop;
+                            break;
+                        case 'left':
+                            newWidth = startWidth - (currentX - startX);
+                            newHeight = startHeight;
+                            newLeft = startLeft + (currentX - startX);
+                            newTop = startTop;
+                            break;
+                        case 'right':
+                            newWidth = startWidth + (currentX - startX);
+                            newHeight = startHeight;
+                            newLeft = startLeft;
+                            newTop = startTop;
+                            break;
+                    }
+
+                    imgContainer.style.width = `${newWidth}px`;
+                    imgContainer.style.height = `${newHeight}px`;
+                    imgContainer.style.left = `${newLeft}px`;
+                    imgContainer.style.top = `${newTop}px`;
                     updatePreview();
                 }
 
